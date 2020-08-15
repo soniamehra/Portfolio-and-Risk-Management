@@ -1,0 +1,177 @@
+---
+title: "Project Kaleidoscope Assignment 1"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+Getting and setting working directory
+```{r}
+rm(list=ls())
+getwd()
+setwd("C:/Users/sonia mehra/Desktop/Kaleidoscope")
+```
+
+```{r setup, include=FALSE}
+library(plyr)
+library(dplyr)
+library(ggplot2)
+library(readxl)
+library(plotly)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Loading data   
+Loading only 1388 rows since last two rows have incomplete data.NIFTY data is also loaded side in variable data_nifty and combining both the data in combined_data.The thing which is to be observed is data and data1 have same date order so data_nifty dates are not added in combined_data because they coincide with data date.759 and 760 row are removed because they have incomplete data 
+```{r}
+data=read_excel("Data for Assignment_1.xlsx")
+data=as.data.frame(data)
+data=data[1:1388,]
+data$Date=as.Date(data$Date)
+
+data_nifty=read_excel("Data for Assignment_1.xlsx",sheet = "NIFTY50")
+data_nifty=as.data.frame(na.omit(data_nifty))
+data_nifty$Date=as.Date(data_nifty$Date)
+
+combined_data=cbind(data,NIFTY=data_nifty[,2])
+combined_data=combined_data[-c(759,760),]
+```
+
+## Part 1
+Yearly returns
+```{r}
+start=c("2014-04-01","2015-04-01","2016-04-01","2017-04-03","2018-04-02")
+end=c("2015-04-01","2016-04-01","2017-04-03","2018-04-02","2019-04-01")
+
+year_return=data.frame(company=colnames(combined_data)[-1])
+i=1
+while(i<=5){
+  x=as.matrix(as.numeric(combined_data%>%filter(Date==start[i])))
+  y=as.matrix(as.numeric(combined_data%>%filter(Date==end[i])))
+  year_return=cbind(year_return,((y-x)/x)[2:13,])
+  i=i+1
+}
+colnames(year_return)[-1]=c(2014,2015,2016,2017,2018)
+row.names(year_return)<-colnames(combined_data)[-1]
+year_return$company<-NULL
+print(year_return)
+```
+
+## Part 2
+Correlation between securities.Calculaton of return and then calculation of correlation.
+```{r}
+return_rate=data.frame(S.No=seq(1,1385))
+for (i in seq(2,13)){
+  combined_data[,i]=as.numeric(combined_data[,i])
+  return_rate=cbind(return_rate,-diff(combined_data[,i])/combined_data[,i][-1])}
+return_rate=na.omit(return_rate)
+colnames(return_rate)=colnames(combined_data)
+return_rate$Date=NULL
+cor(return_rate[,1:11])
+```
+The one with highest correlation is `r colnames(data)[6]` and `r colnames(data)[8]`
+and The one with lowest correlation is `r colnames(data)[2]` and `r colnames(data)[11]`
+
+## Part 3
+Plotting Yearly return for all securities
+```{r}
+year_return=data.frame(t(year_return))
+ggplotly(ggplot(data=year_return,aes(x=c(1,2,3,4,5),xlab="Year"))+
+ geom_line(aes(y=year_return[,1],colour=colnames(year_return)[1]))+
+  geom_line(aes(y=year_return[,2],colour=colnames(year_return)[2]))+
+  geom_line(aes(y=year_return[,3],colour=colnames(year_return)[3]))+
+  geom_line(aes(y=year_return[,4],colour=colnames(year_return)[4]))+
+  geom_line(aes(y=year_return[,5],colour=colnames(year_return)[5]))+
+  geom_line(aes(y=year_return[,6],colour=colnames(year_return)[6]))+  
+  geom_line(aes(y=year_return[,7],colour=colnames(year_return)[7]))+
+  geom_line(aes(y=year_return[,8],colour=colnames(year_return)[8]))+
+  geom_line(aes(y=year_return[,9],colour=colnames(year_return)[9]))+
+  geom_line(aes(y=year_return[,10],colour=colnames(year_return)[10]))+
+  geom_line(aes(y=year_return[,11],colour=colnames(year_return)[11]))+
+  geom_line(aes(y=year_return[,12],colour=colnames(year_return)[12]))+
+  labs(x="year 1-2014 5-2019",y="Yearly Return"))
+
+```
+
+Observation:  For year 
+(i)2014 LT MIDCAP FUND has highest return
+(ii)2015 SBI MAGNUM MIDCAP has highest return 
+(iii)2016 LTMIDCAP FUND has highest return
+(iv)2017 SBI FOCUSSED EQUITY FUND has highest return
+(v)2018 NIFTY has highest return
+
+## Part 4
+Diversification Ratio
+```{r}
+ret=return_rate[,1:11]
+ret$Portfolio=rowMeans(ret)  
+st_dev=apply(ret, 2, sd) 
+for (i in 1:11){print(1/(st_dev[i]/st_dev[12]))}
+```
+Security with lowest Diversification Ratio is NIPPON INDIA LARGECAP FUND so it will give Higher Diversification Benifits
+
+## Part 5
+Security to be added to the Portfolio
+```{r}
+quantity=c(87456.32367,180234.3633,182973.050)
+w=quantity/sum(quantity)
+Port=combined_data[seq(1145,1386),c(1,3,4,8)]
+
+Port_return=data.frame(S.No=seq(1,241))
+for (i in seq(2,4)){
+  Port_return=cbind(Port_return,-diff(Port[,i])/Port[,i][-1])}
+Port_return$S.No<-NULL
+colnames(Port_return)<-colnames(Port)[-1]
+
+R_p=sum(((Port[1,][-1]-Port[242,][-1])/(Port[242,][-1]))*w)
+R_f=0.0291
+weighted_return=rep(0,241)
+for (i in seq(1,241)){
+weighted_return[i]=weighted.mean(Port_return[i,],w)}
+sd_portfolio=sd(weighted_return)
+Sharpe_portfolio=(R_p-R_f)/(sd_portfolio*sqrt(242))
+
+asset=combined_data[seq(1145,1386),c(1,2,5,6,7,9,10,11,12)]
+
+asset_return=data.frame(S.No=seq(1,241))
+for (i in seq(2,9)){
+  asset_return=cbind(asset_return,-diff(asset[,i])/asset[,i][-1])}
+asset_return$S.No<-NULL
+colnames(asset_return)<-colnames(combined_data)[c(2,5,6,7,9,10,11,12)]
+
+sd_asset=apply(asset_return,2,sd)
+R_p=(asset[1,][-1]-asset[242,][-1])/(asset[242,][-1])
+R_f=0.0291
+Sharpe_asset=(R_p-R_f)/(sd_asset*sqrt(242))
+
+RHS=cor(asset_return,weighted_return)*Sharpe_portfolio
+Sharpe_asset>RHS
+```
+All the securities with TRUE under them should be added to Portfolio.Most preferable among all of them is the one with highest Sharpe ratio i.e.`r colnames(asset_return)[which.max(Sharpe_asset)]`.
+
+## Part 6
+
+Best Portfolio among all of the randomly selected portfolio 
+```{r}
+Sharpe_portfolio=rep(NA,3)
+b=rep(NA,3)
+for (i in seq(1,3)){a=sample(seq(2,12),3,replace=F)
+b=rbind(b,a)
+Port=combined_data[seq(1145,1386),c(1,a)]
+
+Port_return=data.frame(S.No=seq(1,241))
+for (j in seq(2,4)){
+  Port_return=cbind(Port_return,-diff(Port[,j])/Port[,j][-1])}
+Port_return$S.No<-NULL
+colnames(Port_return)<-colnames(Port)[-1]
+
+R_p=sum(((Port[1,][-1]-Port[242,][-1])/(Port[242,][-1]))*(1/3))
+R_f=0.0291
+sd_portfolio=sd(apply(Port_return,1,mean))
+Sharpe_portfolio[i]=(R_p-R_f)/(sd_portfolio*sqrt(242))}
+b=na.omit(b)
+print(Sharpe_portfolio)
+BEST=b[which.max(Sharpe_portfolio),]
+colnames(combined_data)[BEST]
+```
+The best portfolio among all of the randomly selected portfolio is `r colnames(combined_data)[BEST]`

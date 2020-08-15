@@ -1,0 +1,104 @@
+---
+title: "Assignment 2"
+author: "Sonia Mehra"
+date: "01/07/2020"
+output: html_document
+---
+
+Getting and setting working directory
+```{r}
+rm(list=ls())
+getwd()
+setwd("C:/Users/sonia mehra/Desktop/Kaleidoscope")
+```
+
+Loading data   
+Loading only 1388 rows since last two rows have incomplete data.NIFTY data is also loaded side in variable data_nifty and combining both the data in combined_data.The thing which is to be observed is data and data1 have same date order so data_nifty dates are not added in combined_data because they coincide with data date.759 and 760 row are removed because they have incomplete data.Moreover data from 1 April 2014 to 31 March 2019 is taken into consideration.
+```{r}
+library(readxl)
+data=read_excel("Data for Assignment_2.xlsx")
+data=as.data.frame(data)
+data=data[1:1388,]
+data$Date=as.Date(data$Date)
+
+data_nifty=read_excel("Data for Assignment_2.xlsx",sheet = "NIFTY50")
+data_nifty=as.data.frame(na.omit(data_nifty))
+data_nifty$Date=as.Date(data_nifty$Date)
+
+combined_data=cbind(data,NIFTY=data_nifty[,2])
+combined_data=combined_data[-c(759,760),]
+combined_data=combined_data[seq(162,1386),]
+
+```
+
+## Part 2
+Calculation of returns from price and then calculation of standard deviation
+```{r}
+return_rate=data.frame(S.No=seq(1,1224))
+for (i in seq(2,13)){
+  combined_data[,i]=as.numeric(combined_data[,i])
+  return_rate=cbind(return_rate,-diff(combined_data[,i])/combined_data[,i][-1])}
+return_rate=na.omit(return_rate)
+colnames(return_rate)=colnames(combined_data)
+return_rate$Date=NULL
+
+st_dev=apply(return_rate,2,sd)
+print(st_dev)
+min_st_dev=st_dev[which.min(st_dev)]
+print(min_st_dev)
+```
+The security with lowest standard deviation is SBI FOCUSSED EQUITY FUND 
+
+## Part 3
+
+Standard deviation of Portfolio
+```{r}
+portfolio=apply(return_rate[,1:11],1,mean)
+sd(portfolio)
+```
+Standard Deviation of Portfolio is lower than Lowest standard deviation therefore decrease in risk
+## Part 4
+
+Beta and adjusted beta for all securities using 2 approaches covariance approach and regression approach    
+**Beta using Covariance approach**
+```{r}
+var_market=var(return_rate$NIFTY)
+beta=rep(0,11)
+adj_beta=rep(0,11)
+for (i in seq(1,11)){
+  covariance=cov(return_rate[,i],return_rate$NIFTY)
+  beta[i]=covariance/var_market
+  adj_beta[i]=(1/3)+(2/3)*beta[i]
+}
+beta_data_frame=data.frame(colnames(return_rate)[1:11],beta,adj_beta)
+print(beta_data_frame)
+```
+**Beta using regression approach**
+```{r}
+beta_alter=rep(0,11)
+for (i in seq(1,11)){
+ beta_alter[i]=lm(return_rate[,i]~return_rate$NIFTY)$coefficients[2]
+}
+print(beta_alter)
+```
+Beta using regression approach is same as beta using covariance approach
+
+## Part 5
+
+Value at Risk of portfolio using 2 methods analytical method and Historic Simulation method   
+**Analytical Method**
+```{r}
+m=mean(portfolio)
+s=sd(portfolio)
+VAR_1=m-1.645*s
+print(VAR_1)
+```
+**Historic Simulation Method**
+```{r}
+VAR_2=sort(portfolio)[round(0.05*1382)]
+print(VAR_2)
+```
+VAR using two approaches is same upto two places of decimal
+
+
+
